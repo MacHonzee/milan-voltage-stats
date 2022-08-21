@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Photovoltaic power chart</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.26.1/axios.min.js" integrity="sha512-bPh3uwgU5qEMipS/VOmRqynnMXGGSRv+72H/N260MQeXZIK4PG48401Bsby9Nq5P5fz7hy5UGNmC/W1Z51h2GQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.1/chart.min.js" integrity="sha512-QSkVNOCYLtj73J4hbmVoOV6KVZuMluZlioC+trLpewV8qMjsWqlIQvkn1KGX2StWvPMdWGBqim1xlC8krl1EKQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+    <style>
+        #voltageSummary {
+            display: flex;
+            justify-content: space-between;
+            padding-left: 32px;
+            margin-top: 8px;
+            font-family: 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
+            font-size: 14px;
+            font-style: normal;
+            color: #7c6d6d;
+        }
+    </style>
+</head>
+<body>
+<div style="max-height: 400px">
+    <canvas id="myChart" width="400" height="400"></canvas>
+    <div id="voltageSummary"></div>
+</div>
+
+<script>
+    const WATTAGE_CONSTANT = 47.62;
+    const ADJUSTMENT_CONSTANT = 2.03;
+    const WATT_HOUR_CONSTANT = 15;
+    const MILLIS_IN_DAY = 86400000;
+    const SOURCE_FUNC = "https://get-voltage-stats-su36le2cma-ew.a.run.app";
+    // const SOURCE_FUNC = "http://localhost:8081/getVoltageStats";
+
+    function isCacheOutdated(cache) {
+        const CACHE_TTL = 60 * 60 * 1000; // 1 hour cache
+        let cacheTs = new Date(JSON.parse(cache).ts);
+        return (new Date() - cacheTs) > CACHE_TTL;
+    }
+
+    async function withCache(cacheKey, cacheCb) {
+        let cache = localStorage.getItem(cacheKey);
+        if (!cache || isCacheOutdated(cache)) {
+            let value = await cacheCb();
+            cache = JSON.stringify({ ts: new Date().toISOString(), value });
+            localStorage.setItem(cacheKey, cache);
+            return value;
+        } else {
+            return JSON.parse(cache).value;
+        }
+    }
+
+    async function getData() {
+        return await withCache("voltageStats", async () => {
+            let dtoOut = await axios.get(SOURCE_FUNC);
+            return dtoOut.data;
+        })
+    }
+
+    function drawChart(data) {
+        let grouppedData = {};
+        data.forEach(line => {
+            let ts = new Date(line[0]);
+            let date = ts.getDate().toString().padStart(2, "0");
+            let hours = ts.getHours().toString().padStart(2, "0");
+            let groupKey = date + "-" + hours;
+            grouppedData[groupKey] = grouppedData[groupKey] || [];
+            grouppedData[groupKey].push(line[3]);
+        });
+
+        // get average value for every hour
+        Object.keys(grouppedData).forEach(key => {
+            let values = grouppedData[key];
+            let sum = values.reduce((sum, val) => sum + val, 0);
+            grouppedData[key] = sum / values.length;
+        });
+
+        const ctx = document.getElementById('myChart');
+
+        let labels = Object.keys(grouppedData).map(key => key.substring(3) + ":00");
+        let dataSet = Object.values(grouppedData).map(val => {
+            let adjustedValue = val * ADJUSTMENT_CONSTANT;
+            let wattHour = (adjustedValue * adjustedValue) / WATT_HOUR_CONSTANT;
+            return wattHour * WATTAGE_CONSTANT;
+        });
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Okamžitý hodinový výkon [Wh]',
+                    data: dataSet,
+                    borderColor: 'rgb(75, 192, 192)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true
+                    }
+                }
+            }
+        });
+
+        return grouppedData;
+    }
+
+    function drawSummary(grouppedData, voltageData) {
+        let wrapper = document.getElementById("voltageSummary");
+
+        let firstDay = new Date(voltageData[0][0]);
+        let lastDay = new Date(voltageData[voltageData.length - 1][0]);
+        let dayIncrease = 0;
+        let maxDiff = Math.ceil((lastDay - firstDay) / MILLIS_IN_DAY);
+        while (dayIncrease < maxDiff) {
+            let innerDiv = document.createElement("div");
+            wrapper.appendChild(innerDiv);
+
+            // display today's date
+            let dateStamp = document.createElement("div");
+            let today = new Date(firstDay);
+            today.setDate(today.getDate() + dayIncrease);
+            dateStamp.textContent = "Datum: " + today.toLocaleDateString();
+            dateStamp.style = "margin-bottom: 8px;"
+            innerDiv.appendChild(dateStamp);
+
+            // calculate all of the watts generated today
+            let thisDay = today.getDate().toString().padStart(2, "0");
+            let total = document.createElement("div");
+            if (dayIncrease === 0) {
+                total.textContent = " ";
+            } else {
+                let totalValue = Object.entries(grouppedData).reduce((sum, [key, val]) => {
+                    if (key.startsWith(thisDay)) {
+                        sum += val;
+                    }
+                    return sum;
+                }, 0);
+                total.textContent = "Celkový výkon [Wh]: " + Math.round(totalValue * WATTAGE_CONSTANT);
+            }
+            innerDiv.appendChild(total);
+
+            dayIncrease++;
+        }
+    }
+
+    async function main() {
+        let voltageData = await getData();
+
+        let grouppedData = drawChart(voltageData);
+
+        drawSummary(grouppedData, voltageData);
+    }
+
+    main();
+</script>
+
+</body>
+</html>

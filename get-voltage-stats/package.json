@@ -1,0 +1,12 @@
+{
+  "name": "voltage-chart",
+  "version": "0.1.1",
+  "scripts": {
+    "start": "functions-framework --target=getVoltageStats --port=8081",
+    "deploy": "set GOOGLE_APPLICATION_CREDENTIALS=C:\\Projekty\\milantomesenergy_gcloud.json&& gcloud functions deploy get-voltage-stats --gen2 --region=europe-west1 --runtime=nodejs16 --source=. --entry-point=getVoltageStats --trigger-http --project=milantomesenergy"
+  },
+  "dependencies": {
+    "axios": "^0.21.2",
+    "@google-cloud/functions-framework": "^3.1.2"
+  }
+}
