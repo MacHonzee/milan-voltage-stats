@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Photovoltaic power table</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.26.1/axios.min.js"
+            integrity="sha512-bPh3uwgU5qEMipS/VOmRqynnMXGGSRv+72H/N260MQeXZIK4PG48401Bsby9Nq5P5fz7hy5UGNmC/W1Z51h2GQ=="
+            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-gH2yIJqKdNHPEq0n4Mqa/HGKIhSkIHeL5AyhkYV8i59U5AR6csBvApHHNl/vI1Bx" crossorigin="anonymous">
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-A3rJD856KowSb7dwlZdYEkO39Gagi7vIsF0jrRAoQmDKKtQBHUuLZ9AsSv4jD4Xa"
+            crossorigin="anonymous"></script>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css">
+
+    <style></style>
+</head>
+<body>
+    <div class="container-fluid">
+        <table id="overviewTable" class="table table-bordered table-responsive align-middle text-center">
+            <thead class="table-light">
+                <tr>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <div id="calendar">
+            <div class="card mb-1">
+                <div id="calendarHeader" class="card-header border-0 d-flex justify-content-between align-items-center"></div>
+            </div>
+            <div id="calendarBody"></div>
+        </div>
+
+    </div>
+
+<script>
+    // const SOURCE_FUNC = "add some uri";
+    const SOURCE_FUNC = "http://localhost:8083/getVoltageReport";
+
+    const MONTHS = [
+        "Leden",
+        "Únor",
+        "Březen",
+        "Duben",
+        "Květen",
+        "Červen",
+        "Červenec",
+        "Srpen",
+        "Září",
+        "Říjen",
+        "Listopad",
+        "Prosinec",
+    ];
+
+    const DAYS = [
+        "Po",
+        "Út",
+        "St",
+        "Čt",
+        "Pá",
+        "So",
+        "Ne"
+    ];
+
+    let currentView = "monthDetail"; // overview || monthDetail
+    let currentYear = 2022;
+    let currentMonth = 8;
+
+    async function getData() {
+        const params = {year: currentYear, month: currentMonth};
+        if (params.month) {
+            params.month = params.month.toString().padStart(2, "0");
+        }
+
+        const dtoOut = await axios.get(SOURCE_FUNC, {params});
+        return dtoOut.data;
+    }
+
+    function drawOverview(data) {
+        // change visibilities
+        const table = document.getElementById("overviewTable");
+        table.style.display = "table";
+        document.getElementById("calendar").style.display = "none";
+
+        // add months to header
+        const monthHeaders = MONTHS.map(month => {
+            const monthTh = document.createElement("th");
+            monthTh.style.width = "8%";
+            monthTh.textContent = month;
+            return monthTh;
+        });
+        const firstThCell = document.createElement("th");
+        firstThCell.textContent = "#";
+        monthHeaders.unshift(firstThCell);
+        document.querySelector("#overviewTable thead tr").replaceChildren(...monthHeaders);
+
+        // group data to years
+        let grouppedByYears = {};
+        data.forEach(item => {
+            let {year, month} = item._id;
+            grouppedByYears[year] = grouppedByYears[year] || {};
+            grouppedByYears[year][month] = grouppedByYears[year][month] || {};
+            grouppedByYears[year][month] = item.totalPower;
+        });
+
+        // write rows and cells
+        const tbody = document.querySelector("#overviewTable tbody");
+        const newRows = [];
+        for (let year in grouppedByYears) {
+            const yearRow = document.createElement("tr");
+            newRows.push(yearRow);
+
+            const yearCell = document.createElement("th");
+            yearCell.textContent = year;
+            yearRow.appendChild(yearCell);
+
+            for (let i = 1; i <= 12; i++) {
+                const monthCell = document.createElement("td");
+                yearRow.appendChild(monthCell);
+
+                if (grouppedByYears[year][i]) {
+                    const monthLink = document.createElement("button");
+                    monthLink.type = "button";
+                    monthLink.className = "btn btn-link";
+                    monthLink.onclick = () => {
+                        switchView("monthDetail", year, i);
+                    };
+                    monthCell.appendChild(monthLink);
+                    monthLink.textContent = grouppedByYears[year][i] || "";
+                }
+            }
+        }
+        tbody.replaceChildren(...newRows);
+    }
+
+    function drawMonth(data) {
+        // change visibilities
+        const calendar = document.getElementById("calendar");
+        calendar.style.display = "block";
+        document.getElementById("overviewTable").style.display = "none";
+
+        const calendarHeader = document.getElementById("calendarHeader");
+
+        // draw header -> year + month
+        const yearMonth = document.createElement("h5");
+        yearMonth.className = "card-title mt-1";
+        yearMonth.textContent = `${MONTHS[currentMonth - 1]} ${currentYear}`;
+
+        // draw left and right arrows
+        const arrowWrapper = document.createElement("div");
+        arrowWrapper.className = "d-flex align-items-center";
+
+        const arrowLeft = document.createElement("button");
+        arrowLeft.className = "btn";
+        arrowLeft.onclick = () => {
+            const previousMonth = new Date(currentYear, currentMonth - 1, 1);
+            previousMonth.setMonth(currentMonth - 2);
+            switchView("monthDetail", previousMonth.getFullYear(), previousMonth.getMonth() + 1);
+        };
+        const arrowLeftIcon = document.createElement("i");
+        arrowLeftIcon.className = "bi bi-chevron-double-left";
+        arrowLeft.appendChild(arrowLeftIcon);
+
+        const arrowRight = document.createElement("button");
+        arrowRight.className = "btn";
+        arrowRight.onclick = () => {
+            const nextMonth = new Date(currentYear, currentMonth - 1, 1);
+            nextMonth.setMonth(currentMonth);
+            switchView("monthDetail", nextMonth.getFullYear(), nextMonth.getMonth() + 1);
+        };
+        const arrowRightIcon = document.createElement("i");
+        arrowRightIcon.className = "bi bi-chevron-double-right";
+        arrowRight.appendChild(arrowRightIcon);
+
+        arrowWrapper.appendChild(arrowLeft);
+        arrowWrapper.appendChild(yearMonth);
+        arrowWrapper.appendChild(arrowRight);
+
+        // draw header -> back buttons
+        const backButton = document.createElement("button");
+        backButton.className = "btn btn-close";
+        backButton.onclick = () => {
+            switchView("overview");
+        };
+
+        const emptyCol = document.createElement("div");
+        emptyCol.textContent = String.fromCharCode(160);
+        calendarHeader.replaceChildren(emptyCol, arrowWrapper, backButton);
+
+        // group data for body
+        const dayGroups = data.reduce((map, item) => {
+            let date = parseInt(item.ts.split("T")[0].split("-")[2]); // extract date without TZ conversion
+            map[date] = item.power;
+            return map;
+        }, {});
+
+        // draw body
+        const calendarBody = document.getElementById("calendarBody");
+        const calendarTable = document.createElement("table");
+        calendarBody.replaceChildren(calendarTable);
+        calendarTable.className = "table table-bordered";
+
+        const calTableHead = document.createElement("thead");
+        calTableHead.className = "table-light";
+        calendarTable.appendChild(calTableHead);
+        const calTableHeadRow = document.createElement("tr");
+        calTableHead.appendChild(calTableHeadRow);
+        for (let day of DAYS) {
+            const dayTh = document.createElement("th");
+            dayTh.style.width = "14%";
+            dayTh.textContent = day;
+            calTableHeadRow.appendChild(dayTh);
+        }
+
+        const calTableBody = document.createElement("tbody");
+        calendarTable.appendChild(calTableBody);
+
+        const now = new Date(currentYear, currentMonth - 1, 1);
+        const firstDayOfMonth = new Date(now);
+        firstDayOfMonth.setMonth(now.getMonth(), 1);
+        const lastDayOfMonth = new Date(now);
+        lastDayOfMonth.setMonth(now.getMonth() + 1, -1);
+
+        const firstDay = firstDayOfMonth.getDay();
+        const emptyCellCount = firstDay === 0 ? 6 : firstDay - 1;
+
+        // insert days from previous month
+        let currentCalRow = document.createElement("tr");
+        calTableBody.appendChild(currentCalRow);
+        for (let i = 0; i < emptyCellCount; i++) {
+            const emptyCell = document.createElement("td");
+            emptyCell.textContent = String.fromCharCode(160);
+            currentCalRow.appendChild(emptyCell);
+        }
+
+        // then build all cells with the values
+        for (let i = 0; i <= lastDayOfMonth.getDate(); i++) {
+            if (currentCalRow.childElementCount === 7) {
+                currentCalRow = document.createElement("tr");
+                calTableBody.appendChild(currentCalRow);
+            }
+
+            const calCell = document.createElement("td");
+            currentCalRow.appendChild(calCell);
+
+            const calCellDay = document.createElement("div");
+            calCellDay.className = "text-secondary text-center mb-1";
+            calCellDay.textContent = i + 1 + ".";
+            calCell.appendChild(calCellDay);
+
+            const calCellValue = document.createElement("div");
+            calCell.appendChild(calCellValue);
+            if (dayGroups[i + 1]) {
+                calCellValue.className = "fw-semibold fs-6 text-center";
+                calCellValue.textContent = dayGroups[i + 1] + " [Wh]";
+            } else {
+                calCellValue.textContent = String.fromCharCode(160);
+            }
+        }
+
+        // and then add last days to last row from next month
+        while (currentCalRow.childElementCount !== 7) {
+            const emptyCell = document.createElement("td");
+            emptyCell.textContent = String.fromCharCode(160);
+            currentCalRow.appendChild(emptyCell);
+        }
+    }
+
+    function switchView(viewType, year, month) {
+        currentView = viewType;
+        currentYear = year;
+        currentMonth = month;
+        main();
+    }
+
+    async function main() {
+        let data = await getData();
+        console.log("-> data", data);
+
+        currentView === "overview" ? drawOverview(data) : drawMonth(data) ;
+    }
+
+    main();
+</script>
+
+</body>
+</html>

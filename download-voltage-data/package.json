@@ -1,0 +1,13 @@
+{
+  "name": "voltage-chart",
+  "version": "0.1.1",
+  "scripts": {
+    "start": "set MONGODB_URI=mongodb://127.0.0.1:27017/voltageData&& functions-framework --target=downloadVoltageData --port=8082",
+    "deploy": "set GOOGLE_APPLICATION_CREDENTIALS=\"C:\\Projekty\\milantomesenergy_gcloud.json\" && gcloud functions deploy download-voltage-data --gen2 --region=europe-west1 --runtime=nodejs16 --source=. --entry-point=downloadVoltageData --trigger-http --project=milantomesenergy"
+  },
+  "dependencies": {
+    "mongodb": "^4.9.0",
+    "axios": "^0.21.2",
+    "@google-cloud/functions-framework": "^3.1.2"
+  }
+}
