@@ -5,14 +5,14 @@ const axios = require("axios");
 const MONGO_URI = process.env.MONGODB_URI;
 const COLLECTION = "voltageStats";
 const DEVICE = "0000002463"; // hardcoded for now since there is only one device
-const FETCH_DATA_URL = "http://localhost:8081/getVoltageStats";
-// const FETCH_DATA_URL = "https://get-voltage-stats-su36le2cma-ew.a.run.app";
+// const FETCH_DATA_URL = "http://localhost:8081/getVoltageStats";
+const FETCH_DATA_URL = "https://get-voltage-stats-su36le2cma-ew.a.run.app";
 
 // to calculate the power precisely
 const WATTAGE_CONSTANT = 47.62;
 
 async function downloadLatestData() {
-    const client = new MongoClient(MONGO_URI);
+    const client = new MongoClient(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
     try {
         await client.connect();
 

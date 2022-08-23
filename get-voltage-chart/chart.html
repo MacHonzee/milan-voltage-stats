@@ -77,7 +77,7 @@
             grouppedData[key] = sum / values.length;
         });
 
-        const ctx = document.getElementById('myChart');
+        const canvas = document.getElementById('myChart');
 
         let labels = Object.keys(grouppedData).map(key => key.substring(3) + ":00");
         let dataSet = Object.values(grouppedData).map(val => {
@@ -86,7 +86,7 @@
             return wattHour * WATTAGE_CONSTANT;
         });
 
-        new Chart(ctx, {
+        new Chart(canvas, {
             type: 'line',
             data: {
                 labels: labels,

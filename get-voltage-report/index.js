@@ -1,5 +1,6 @@
 const functions = require('@google-cloud/functions-framework');
 const {MongoClient} = require('mongodb');
+
 const MONGO_URI = process.env.MONGODB_URI;
 const COLLECTION = "voltageStats";
 
@@ -53,9 +54,15 @@ function setCacheControl(res, year, month) {
 }
 
 functions.http("getVoltageReport", async (req, res) => {
-    // disable CORS, we need it public
-    // res.set('Access-Control-Allow-Origin', 'https://dumtech.cz/');
-    res.set('Access-Control-Allow-Origin', '*');
+    // setup cors
+    const corsWhitelist = [
+        'https://get-voltage-table-su36le2cma-ew.a.run.app',
+        'https://dumtech.cz/',
+    ];
+    if (corsWhitelist.indexOf(req.headers.origin) !== -1) {
+        res.header('Access-Control-Allow-Origin', req.headers.origin);
+        res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+    }
 
     if (!MONGO_URI) {
         res.status(500);

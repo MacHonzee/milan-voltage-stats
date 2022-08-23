@@ -32,8 +32,15 @@ async function loadData(device, ln, zm) {
 }
 
 functions.http("getVoltageStats", async (req, res) => {
-    // disable CORS, we need it public
-    res.set('Access-Control-Allow-Origin', '*');
+    // setup cors
+    const corsWhitelist = [
+        'https://get-voltage-chart-su36le2cma-ew.a.run.app',
+        'https://dumtech.cz/',
+    ];
+    if (corsWhitelist.indexOf(req.headers.origin) !== -1) {
+        res.header('Access-Control-Allow-Origin', req.headers.origin);
+        res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+    }
 
     let data = await loadData(req.query.device, req.query.ln, req.query.zm);
     res.send(JSON.stringify(data));

@@ -3,7 +3,7 @@ const fs = require('fs');
 
 functions.http('getVoltageTable', async (req, res) => {
     // disable CORS, we need it public
-    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Origin', 'https://dumtech.cz/');
 
     if (req.method === 'OPTIONS') {
         // Send response to OPTIONS requests
